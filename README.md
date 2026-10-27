@@ -1,11 +1,30 @@
+
+<img width="3840" height="2160" alt="image0" src="https://github.com/user-attachments/assets/b0575e5a-1308-4798-9a68-b0ed466bf5f4" />
+(note debug window in screenshot is off by default)
+
+
+
+
 This is a fix of the original OpenCollidoscope.   It skips the cinder compile, and uses current python.   Took a day working with Cursor AI to convert to python and fix the conversion.  
 
 I saw the original project on a Dr Mix video where the original creators demonstrated it.  http://collidoscope.io/  https://www.youtube.com/watch?v=9XMfKYVu_fg
 
 My setup is a RPi4 running latest Raspbian (as of 25 Oct 2025) and Python3.  My soundcard is a Focusrite Scarlett 2i4.  
-The RPi seems to want to default to HDMI audio output (input was automatically from the Scarlett) so I had to include "--output usb" as part of the command.  If you are using HDMI audio then you can skip that.
+The RPi seems to want to default to HDMI audio output (input was automatically from the Scarlett) so I had to include "--output usb" as part of the command. 
+If you are using HDMI audio then you can skip that.
 
 I am not using the sliders etc for controls...just midi...the teensy midi input is untested, but since it is simply sending midi over USB, it shouldn't have a problem.  You will have to dig around the original repository to get the docs etc...if they are missing I can add them here.
+
+Here is the Midi info.  Midi channel 1 is for wave1 or single wave. Channel 2 is for wave2 in a two waveform setup.  So in a two waveform setup Midi channel 2 also needs controls with the following CC#s.  I have 4 rotary knobs and the transport controls on my old Alesis QX49...but you could even make your own teensy midi controller if you didn't want to build the complex slider system of the original.
+
+For each Midi channel you need the following CCs (I am only using 1 midi channel)\
+  CC 145 = position (Pitchbend control)\
+  CC 1 = length (modulation wheel)\
+  CC 2 = duration\
+  CC 7 = filter\
+  CC 5 = play (just plays the waveform as is...your keyboard will pitch the waveform and play it)\
+  CC 7 = record (this is how you command the software to do an audio capture off your selected input device)\
+
 
 The Dr Mix video shows the 2 wave version, I only wanted the 1 wave version. (note the instructions below on changing that)  I am running my display at 1024x768, so this program runs at fullscreen.  More pixels seems to add more load, but you can try running at 1920x1080 on your display and in the program.
 
@@ -14,7 +33,7 @@ Instructions from Cursor AI follows.  BTW modern python almost forces you to use
 
 Install it from your fork, on the python-port branch. On the Pi, replace /home/pi if your home directory is different. 
 
-
+```
 sudo apt update
 sudo apt install python3-pip python3-venv python3-pygame python3-numpy libportaudio2 libasound2-dev git
 cd /home/pi
@@ -26,10 +45,10 @@ python3 -m pip install sounddevice python-rtmidi
 python3 -m opencollidoscope --list-audio
 python3 -m opencollidoscope --output usb 1024 768
 --system-site-packages uses the Raspberry Pi OS builds of pygame and numpy. Set NUM_WAVES in opencollidoscope/config.py before you start: 1 uses the first input only, 2 sends input 1 to wave 1 and input 2 to wave 2. Leave the desktop volume output on HDMI so the Scarlett stays with this program.
-
+```
 To put an icon on the desktop, save this as /home/pi/Desktop/opencollidoscope.desktop:
 
-
+```
 [Desktop Entry]
 Type=Application
 Name=OpenCollidoscope
@@ -38,8 +57,9 @@ Exec=/home/pi/opencollidoscope/python/.venv/bin/python -m opencollidoscope --out
 Path=/home/pi/opencollidoscope/python
 Terminal=false
 Categories=AudioVideo;Audio;
+```
 Then mark it executable:
-
-
+```
 chmod +x /home/pi/Desktop/opencollidoscope.desktop
+```
 If the desktop asks you to trust the launcher, confirm that. Copying the same file to /home/pi/.local/share/applications/ also puts it in the application menu.
