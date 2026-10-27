@@ -1,4 +1,4 @@
-This is a fix of the orignal OpenCollidoscope.   It skips the cinder compile, and uses current python.   Took a day working with Cursor AI to convert to python and fix the conversion.  
+This is a fix of the original OpenCollidoscope.   It skips the cinder compile, and uses current python.   Took a day working with Cursor AI to convert to python and fix the conversion.  
 
 I saw the original project on a Dr Mix video where the original creators demonstrated it.  http://collidoscope.io/  https://www.youtube.com/watch?v=9XMfKYVu_fg
 
