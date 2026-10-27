@@ -63,3 +63,60 @@ Then mark it executable:
 chmod +x /home/pi/Desktop/opencollidoscope.desktop
 ```
 If the desktop asks you to trust the launcher, confirm that. Copying the same file to /home/pi/.local/share/applications/ also puts it in the application menu.
+
+
+
+
+----------------------
+
+PS, the way this plays is the keyboard changes the rate and pitch...if you do not want the pitch to change...just the rate with the keyboard...then note the following message from Cursor AI and plan accordingly.
+
+-----------------------
+The edit is in WaveEngine.note_on in engine.py. That is the only place a key becomes a playback rate.
+
+
+engine.py
+Ln 139–149
+```
+def note_on(self, midi_note: int) -> None:
+    rate = midi_note_ratio(midi_note)
+    for i, assigned in enumerate(self.midi_notes):
+        if assigned == midi_note:
+            self.voices[i].note_on(rate)
+            return
+    for i, assigned in enumerate(self.midi_notes):
+        if assigned == NO_MIDI_NOTE:
+            self.voices[i].note_on(rate)
+            self.midi_notes[i] = midi_note
+            return
+```
+
+rate is passed into PGranular.note_on, which stores it as the pitch. 1.0 is the recorded pitch. Middle C already produces 1.0.
+
+
+dsp.py
+Ln 260–265
+```
+def note_on(self, rate: float) -> None:
+    if self.env.state is EnvState.IDLE:
+        if self.trigger_rate < MIN_GRAIN_DURATION:
+            self.trigger_rate = MIN_GRAIN_DURATION
+        self.set_grains_rate(rate)
+        self.env.state = EnvState.ATTACK
+```
+Speed is the other number, trigger_rate. It is set from the selection length here, and a key never touches it:
+
+
+dsp.py
+Ln 253–258
+```
+def set_selection_size(self, size: int) -> None:
+    size = max(size, MIN_GRAIN_DURATION)
+    self.trigger_rate = size
+    self.grains_duration = max(
+        MIN_GRAIN_DURATION, int(round(size * self.grains_duration_coeff))
+    )
+```
+For speed-only keys, note_on in engine.py would pass 1.0 into voices[i].note_on and multiply that voice's trigger_rate by rate before the note starts. Leaving note_on(rate) as it is now keeps the original pitch-and-speed behavior. The loop calls note_on(1.0) just above this function, so it stays at the recorded pitch either way.
+
+------------------------
