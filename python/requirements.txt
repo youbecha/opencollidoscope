@@ -1,0 +1,4 @@
+numpy>=1.26
+sounddevice>=0.5
+pygame>=2.5
+python-rtmidi>=1.5

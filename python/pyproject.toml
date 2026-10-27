@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opencollidoscope"
+version = "0.1.0"
+description = "Python runtime for OpenCollidoscope on current CPython / Raspberry Pi OS"
+readme = "README.md"
+license = { text = "GPL-3.0-or-later" }
+requires-python = ">=3.11"
+authors = [{ name = "Queen Mary University of London" }]
+dependencies = [
+    "numpy>=1.26",
+    "sounddevice>=0.5",
+    "pygame>=2.5",
+]
+
+[project.optional-dependencies]
+midi = ["python-rtmidi>=1.5"]
+
+[project.scripts]
+opencollidoscope = "opencollidoscope.ui:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["opencollidoscope*"]
