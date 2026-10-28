@@ -44,8 +44,9 @@ source .venv/bin/activate
 python3 -m pip install sounddevice python-rtmidi
 python3 -m opencollidoscope --list-audio
 python3 -m opencollidoscope --output usb 1024 768
---system-site-packages uses the Raspberry Pi OS builds of pygame and numpy. Set NUM_WAVES in opencollidoscope/config.py before you start: 1 uses the first input only, 2 sends input 1 to wave 1 and input 2 to wave 2. Leave the desktop volume output on HDMI so the Scarlett stays with this program.
 ```
+--system-site-packages uses the Raspberry Pi OS builds of pygame and numpy. Set NUM_WAVES in opencollidoscope/config.py before you start: 1 uses the first input only, 2 sends input 1 to wave 1 and input 2 to wave 2. Leave the desktop volume output on HDMI so the Scarlett stays with this program.
+
 To put an icon on the desktop, save this as /home/pi/Desktop/opencollidoscope.desktop:
 
 ```
