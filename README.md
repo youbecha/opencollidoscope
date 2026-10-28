@@ -70,7 +70,9 @@ If the desktop asks you to trust the launcher, confirm that. Copying the same fi
 
 ----------------------
 
-PS, the way this plays is the keyboard changes the rate and pitch...if you do not want the pitch to change...just the rate with the keyboard...then note the following message from Cursor AI and plan accordingly.
+PS, the way the original Collidoscope plays is the keyboard changes the rate AND pitch...
+
+-if you do not want the pitch to change only the rate with the keyboard...then note the following message from Cursor AI and edit accordingly.
 
 -----------------------
 The edit is in WaveEngine.note_on in engine.py. That is the only place a key becomes a playback rate.
