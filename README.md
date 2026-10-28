@@ -1,9 +1,7 @@
 
 <img width="3840" height="2160" alt="image0" src="https://github.com/user-attachments/assets/b0575e5a-1308-4798-9a68-b0ed466bf5f4" />
-(note debug window in screenshot is off by default)
 
-
-
+(note: debug window in screenshot is off by default)
 
 This is a fix of the original OpenCollidoscope.   It skips the cinder compile, and uses current python.   Took a day working with Cursor AI to convert to python and fix the conversion.  
 
@@ -27,6 +25,10 @@ For each Midi channel you need the following CCs (I am only using 1 midi channel
 
 
 The Dr Mix video shows the 2 wave version, I only wanted the 1 wave version. (note the instructions below on changing that)  I am running my display at 1024x768, so this program runs at fullscreen.  More pixels seems to add more load, but you can try running at 1920x1080 on your display and in the program.
+
+You don't have to use the Starlett...I had one, so I used it.  For my 2 channel input, if using single wave setup, then channel one is the input, if a dual wave setup then channel 2 goes to wave 2.  (can you imagine the drama, when the original fix put the single wave input as channel 2 and I am trying to figure out why no recorded audio...?)
+
+IF you have a single channel input, it should go to both waves in a dual wave setup.
 
 ---
 Instructions from Cursor AI follows.  BTW modern python almost forces you to use a Virtual Environment (venv) so I followed that convention.  (for the record, I did not install this way (my fork did not yet exist)..so can't tell you if all the instructions will work in your case)
@@ -120,6 +122,15 @@ def set_selection_size(self, size: int) -> None:
         MIN_GRAIN_DURATION, int(round(size * self.grains_duration_coeff))
     )
 ```
-For speed-only keys, note_on in engine.py would pass 1.0 into voices[i].note_on and multiply that voice's trigger_rate by rate before the note starts. Leaving note_on(rate) as it is now keeps the original pitch-and-speed behavior. The loop calls note_on(1.0) just above this function, so it stays at the recorded pitch either way.
+For speed-only keys, note_on in engine.py would pass 1.0 into voices[i].note_on and multiply that voice's trigger_rate by rate before the note starts. 
+
+Leaving note_on(rate) as it is now keeps the original pitch-and-speed behavior. 
+```
+self.voices[i].note_on(rate)
+```
+The loop calls note_on(1.0) just above this function, so it stays at the recorded pitch either way. (so you could put the rate at any preset amount for effect)
+```
+self.voices[i].note_on(1.0)
+```
 
 ------------------------
