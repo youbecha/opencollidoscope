@@ -134,3 +134,16 @@ self.voices[i].note_on(1.0)
 ```
 
 ------------------------
+
+## Audio config
+
+A combo keyboard or screen can expose its own microphone (for example KTMicro KT USB Audio). The program records from that device unless the input and output are pinned. List the devices, then save the ones you want. Use a unique part of the name from the list. `usb` matches every USB audio device once more than one is plugged in.
+
+```bash
+cd /home/pi/opencollidoscope/python
+source .venv/bin/activate
+python3 -m opencollidoscope --list-audio
+python3 -m opencollidoscope --input Scarlett --output Scarlett --save-audio
+```
+
+`--save-audio` writes `~/.config/opencollidoscope/audio.conf`. Later launches, including the desktop icon, use that file, so `--output usb` is no longer needed on the command or in the desktop file. `--input` or `--output` on the command line still overrides the file for that one run. Press `F1` to see which devices are open and whether each one came from `command`, `config`, or `auto`.
