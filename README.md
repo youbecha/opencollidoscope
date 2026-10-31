@@ -20,8 +20,8 @@ For each Midi channel you need the following CCs (I am only using 1 midi channel
   CC 1 = length (modulation wheel)\
   CC 2 = duration\
   CC 7 = filter\
-  CC 5 = play (just plays the waveform as is...your keyboard will pitch the waveform and play it)\
-  CC 7 = record (this is how you command the software to do an audio capture off your selected input device)\
+  CC 4 = play (just plays the waveform as is...your keyboard will pitch the waveform and play it)\
+  CC 5 = record (this is how you command the software to do an audio capture off your selected input device)\
 
 
 The Dr Mix video shows the 2 wave version, I only wanted the 1 wave version. (note the instructions below on changing that)  I am running my display at 1024x768, so this program runs at fullscreen.  More pixels seems to add more load, but you can try running at 1920x1080 on your display and in the program.
