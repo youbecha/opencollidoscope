@@ -16,14 +16,7 @@ python3 -m pip install sounddevice python-rtmidi
 python3 -m opencollidoscope 1024 768
 ```
 
-PortAudio does not follow the desktop default sink. List the devices it can see, then pass a name fragment or the index from that list:
-
-```bash
-python3 -m opencollidoscope --list-audio
-python3 -m opencollidoscope --output usb 1024 768
-```
-
-`--input usb` does the same for the microphone. The startup log line `Audio output:` is the device the stream opened.
+PortAudio does not follow the desktop default sink. A combo keyboard or screen that exposes its own mic can become the automatic recorder. The commands to list devices and pin them are at the end of this file.
 
 `--system-site-packages` lets the venv use the OS `pygame` / `numpy` builds, which is the reliable path on Raspberry Pi (pip wheels for pygame often fail on ARM).
 
@@ -75,3 +68,14 @@ Hardware MIDI is optional. Without `python-rtmidi` or a controller, the computer
 ## What this is not
 
 It does not compile the Cinder app, flash Teensy firmware, or replace JACK with Cinder’s audio graph. JACK can still sit in front of PortAudio via `pipewire-jack` if you want that routing on current Raspberry Pi OS.
+
+## Audio config
+
+List the devices, then save the input and output you want. Use a unique part of the device name from that list. An index also works, but it changes when another USB device is plugged in. `usb` is too short once two USB audio devices are connected.
+
+```bash
+python3 -m opencollidoscope --list-audio
+python3 -m opencollidoscope --input Scarlett --output Scarlett --save-audio
+```
+
+`--save-audio` writes `~/.config/opencollidoscope/audio.conf`. Later launches, including a desktop shortcut with no extra arguments, use that file. `--input` and `--output` on the command line override the file for that one run. Press `F1` to see the open devices and whether each one came from `command`, `config`, or `auto`.

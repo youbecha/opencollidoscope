@@ -5,6 +5,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 import wave
+from pathlib import Path
 
 import numpy as np
 
@@ -19,8 +20,13 @@ from opencollidoscope.ui import (
     CollidoscopeApp,
     choose_audio_devices,
     find_audio_device,
+    find_audio_devices,
+    parse_audio_config,
+    require_audio_device,
+    save_audio_config,
     audio_stream_timing,
     hardware_output_channels,
+    load_audio_config,
     parse_kernel_devices,
     parse_kernel_keyboards,
     write_wav,
@@ -170,6 +176,27 @@ class AudioDeviceTests(unittest.TestCase):
         self.assertEqual(find_audio_device(devices, "usb", "out"), 1)
         self.assertEqual(find_audio_device(devices, "0", "out"), 0)
         self.assertIsNone(find_audio_device(devices, "headphones", "out"))
+
+    def test_shared_usb_name_is_rejected(self) -> None:
+        devices = [
+            {"index": 2, "name": "KTMicro KT USB Audio", "hostapi": "ALSA", "max_input_channels": 1, "max_output_channels": 2},
+            {"index": 4, "name": "Scarlett 2i4 USB", "hostapi": "ALSA", "max_input_channels": 2, "max_output_channels": 4},
+        ]
+        self.assertEqual(find_audio_devices(devices, "usb", "in"), [2, 4])
+        self.assertEqual(require_audio_device(devices, "Scarlett", "in"), 4)
+        with self.assertRaises(SystemExit) as raised:
+            require_audio_device(devices, "usb", "in")
+        self.assertIn("KTMicro", str(raised.exception))
+        self.assertIn("Scarlett", str(raised.exception))
+
+    def test_audio_config_round_trip(self) -> None:
+        pinned_in, pinned_out = parse_audio_config(
+            "# comment\ninput = Scarlett\noutput =\nnoise = 1\n"
+        )
+        self.assertEqual((pinned_in, pinned_out), ("Scarlett", None))
+        with tempfile.TemporaryDirectory() as folder:
+            path = save_audio_config("Scarlett", "hdmi", path=Path(folder) / "audio.conf")
+            self.assertEqual(load_audio_config(path), ("Scarlett", "hdmi"))
 
     def test_hardware_output_uses_a_longer_block(self) -> None:
         self.assertEqual(audio_stream_timing("USB Audio Device", "ALSA"), (1024, 0.1))

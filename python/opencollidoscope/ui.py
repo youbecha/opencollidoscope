@@ -15,6 +15,7 @@ import threading
 import time
 import wave
 from collections import deque
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -95,26 +96,93 @@ def choose_audio_devices(
     return pick("in", default_input), pick("out", default_output)
 
 
-def find_audio_device(devices: list[dict], query: str, kind: str) -> int | None:
-    """Match a PortAudio device by index or by a case-insensitive name fragment."""
+def audio_config_path() -> Path:
+    """Where a Raspberry Pi desktop launch reads pinned devices."""
+    return Path.home() / ".config" / "opencollidoscope" / "audio.conf"
+
+
+def parse_audio_config(text: str) -> tuple[str | None, str | None]:
+    """Read `input = …` and `output = …`. Blank values and comments are ignored."""
+    values: dict[str, str] = {}
+    for raw in text.splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if not line or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip().lower()
+        value = value.strip().strip("\"'")
+        if key in {"input", "output"} and value:
+            values[key] = value
+    return values.get("input"), values.get("output")
+
+
+def load_audio_config(path: Path | None = None) -> tuple[str | None, str | None]:
+    path = path or audio_config_path()
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None, None
+    return parse_audio_config(text)
+
+
+def save_audio_config(
+    input_query: str | None,
+    output_query: str | None,
+    path: Path | None = None,
+) -> Path:
+    path = path or audio_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "# Device index or a unique name fragment from --list-audio.\n"
+        f"input = {input_query or ''}\n"
+        f"output = {output_query or ''}\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def find_audio_devices(devices: list[dict], query: str, kind: str) -> list[int]:
+    """Every PortAudio device matching an index or a case-insensitive name fragment."""
     channels_key = "max_input_channels" if kind == "in" else "max_output_channels"
     text = query.strip()
     if not text:
-        return None
+        return []
+    eligible = [dev for dev in devices if int(dev.get(channels_key, 0)) >= 1]
     if text.isdigit():
         index = int(text)
-        for dev in devices:
-            if int(dev["index"]) == index and int(dev.get(channels_key, 0)) >= 1:
-                return index
-        return None
+        return [index] if any(int(dev["index"]) == index for dev in eligible) else []
     needle = text.lower()
-    for dev in devices:
-        if int(dev.get(channels_key, 0)) < 1:
-            continue
-        blob = f"{dev.get('hostapi', '')} {dev.get('name', '')}".lower()
-        if needle in blob:
-            return int(dev["index"])
-    return None
+    return [
+        int(dev["index"])
+        for dev in eligible
+        if needle in f"{dev.get('hostapi', '')} {dev.get('name', '')}".lower()
+    ]
+
+
+def find_audio_device(devices: list[dict], query: str, kind: str) -> int | None:
+    """First PortAudio device matching an index or a case-insensitive name fragment."""
+    matches = find_audio_devices(devices, query, kind)
+    return matches[0] if matches else None
+
+
+def require_audio_device(devices: list[dict], query: str, kind: str) -> int:
+    """One device, or a message listing every match when the name is ambiguous."""
+    matches = find_audio_devices(devices, query, kind)
+    label = "input" if kind == "in" else "output"
+    if len(matches) == 1:
+        return matches[0]
+    listing = format_audio_devices(devices)
+    if not matches:
+        raise SystemExit(f"No {label} device matches {query!r}.\n{listing}")
+    shown = "\n".join(
+        line
+        for line in listing.splitlines()
+        if any(line.startswith(f"[{index}]") for index in matches)
+    )
+    raise SystemExit(
+        f"{query!r} matches more than one {label} device. "
+        f"Use a longer name or the index:\n{shown}"
+    )
 
 
 def hardware_output_channels(max_channels: int, name: str, hostapi: str) -> int:
@@ -235,6 +303,8 @@ class CollidoscopeApp:
         debug_log: str | None = None,
         input_query: str | None = None,
         output_query: str | None = None,
+        input_source: str = "auto",
+        output_source: str = "auto",
     ) -> None:
         self.config = config or Config()
         self.width = width
@@ -263,6 +333,8 @@ class CollidoscopeApp:
         self._output_device: int | None = None
         self.audio_input_name = "none"
         self.audio_output_name = "none"
+        self.audio_input_source = input_source
+        self.audio_output_source = output_source
         self.audio_output_hostapi = ""
         self._input_query = input_query
         self._output_query = output_query
@@ -411,21 +483,9 @@ class CollidoscopeApp:
             default_in, default_out = sd.default.device
             in_dev, out_dev = choose_audio_devices(devices, default_in, default_out)
             if self._output_query:
-                matched = find_audio_device(devices, self._output_query, "out")
-                if matched is None:
-                    raise SystemExit(
-                        f"No output device matches {self._output_query!r}.\n"
-                        f"{format_audio_devices(devices)}"
-                    )
-                out_dev = matched
+                out_dev = require_audio_device(devices, self._output_query, "out")
             if self._input_query:
-                matched = find_audio_device(devices, self._input_query, "in")
-                if matched is None:
-                    raise SystemExit(
-                        f"No input device matches {self._input_query!r}.\n"
-                        f"{format_audio_devices(devices)}"
-                    )
-                in_dev = matched
+                in_dev = require_audio_device(devices, self._input_query, "in")
             self._input_device = in_dev
             self._output_device = out_dev
             by_index = {dev["index"]: dev for dev in devices}
@@ -444,13 +504,24 @@ class CollidoscopeApp:
                 self.config.block_size = block
                 self._audio_latency = latency
             log.info(
-                "Audio output: [%s] %s block %s latency %s",
+                "Audio output: [%s] %s block %s latency %s (%s)",
                 out_dev,
                 self.audio_output_name,
                 self.config.block_size,
                 self._audio_latency,
+                self.audio_output_source,
             )
-            log.info("Audio input: [%s] %s", in_dev, self.audio_input_name)
+            log.info(
+                "Audio input: [%s] %s (%s)",
+                in_dev,
+                self.audio_input_name,
+                self.audio_input_source,
+            )
+            if self.audio_input_source == "auto" or self.audio_output_source == "auto":
+                log.info(
+                    "Pin a device with --input / --output, or in %s",
+                    audio_config_path(),
+                )
         except Exception as exc:
             log.warning("Using %s Hz (device probe failed: %s)", self.config.sample_rate, exc)
             self._input_device = None
@@ -1239,7 +1310,10 @@ class CollidoscopeApp:
             (dim, f"DEBUG  F1 hides overlay   log {self.debug_log_path or 'off'}"),
             (
                 dim,
-                _clip(f"out {self.audio_output_name}   in {self.audio_input_name}"),
+                _clip(
+                    f"out {self.audio_output_name} ({self.audio_output_source})   "
+                    f"in {self.audio_input_name} ({self.audio_input_source})"
+                ),
             ),
             (
                 bad if self._key_focus is False else (warn if self.audio_xruns else dim),
@@ -1408,12 +1482,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--output",
         metavar="NAME",
-        help="output device index or name fragment, for example usb",
+        help="output device index or unique name fragment, for example Scarlett",
     )
     parser.add_argument(
         "--input",
         metavar="NAME",
-        help="input device index or name fragment",
+        help="input device index or unique name fragment, for example Scarlett",
+    )
+    parser.add_argument(
+        "--save-audio",
+        action="store_true",
+        help="write --input and --output into ~/.config/opencollidoscope/audio.conf",
     )
     parser.add_argument(
         "--list-audio",
@@ -1423,8 +1502,21 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("width", nargs="?", type=int)
     parser.add_argument("height", nargs="?", type=int)
     args = parser.parse_args(sys.argv[1:] if argv is None else argv)
+    file_in, file_out = load_audio_config()
+    if args.save_audio:
+        if args.input is None and args.output is None:
+            parser.error("--save-audio needs --input, --output, or both")
+        saved_in = args.input if args.input is not None else file_in
+        saved_out = args.output if args.output is not None else file_out
+        path = save_audio_config(saved_in, saved_out)
+        print(f"Saved audio devices to {path}")
+        file_in, file_out = saved_in, saved_out
     if args.list_audio:
         return _print_audio_devices()
+    input_query = args.input if args.input is not None else file_in
+    output_query = args.output if args.output is not None else file_out
+    input_source = "command" if args.input else ("config" if input_query else "auto")
+    output_source = "command" if args.output else ("config" if output_query else "auto")
     if (args.width is None) != (args.height is None):
         parser.error("pass both window_width and window_height, or neither")
     width = 1024 if args.width is None else args.width
@@ -1435,8 +1527,10 @@ def main(argv: list[str] | None = None) -> int:
         height,
         debug=debug,
         debug_log=args.debug_log,
-        input_query=args.input,
-        output_query=args.output,
+        input_query=input_query,
+        output_query=output_query,
+        input_source=input_source,
+        output_source=output_source,
     ).run()
 
 
@@ -1455,4 +1549,10 @@ def _print_audio_devices() -> int:
     default_in, default_out = sd.default.device
     print(format_audio_devices(devices))
     print(f"PortAudio default input {default_in}, output {default_out}")
+    pinned_in, pinned_out = load_audio_config()
+    print(f"Config {audio_config_path()}")
+    print(f"  input = {pinned_in or '(auto)'}")
+    print(f"  output = {pinned_out or '(auto)'}")
+    print("Pin a device with a unique name from the list above, then start the app:")
+    print("  python3 -m opencollidoscope --input Scarlett --output Scarlett --save-audio")
     return 0
