@@ -1,15 +1,15 @@
 
 <img width="3840" height="2160" alt="image0" src="https://github.com/user-attachments/assets/b0575e5a-1308-4798-9a68-b0ed466bf5f4" />
 
-(note: debug window in screenshot is off by default)
+(note: debug window in screenshot is off by default - use F1)
+
+## Introduction
 
 This is a fix of the original OpenCollidoscope.   It skips the cinder compile, and uses current python.   Took a day working with Cursor AI to convert to python and fix the conversion.  
 
 I saw the original project on a Dr Mix video where the original creators demonstrated it.  http://collidoscope.io/  https://www.youtube.com/watch?v=9XMfKYVu_fg
 
-My setup is a RPi4 running latest Raspbian (as of 25 Oct 2025) and Python3.  My soundcard is a Focusrite Scarlett 2i4.  
-The RPi seems to want to default to HDMI audio output (input was automatically from the Scarlett) so I had to include "--output usb" as part of the command. 
-If you are using HDMI audio then you can skip that.
+My setup is a RPi4 running latest Raspbian (as of 25 Oct 2025) and Python3.  My soundcard is a Focusrite Scarlett 2i4.  (note the Audio Config section below if you are running an offboard audio device)
 
 I am not using the sliders etc for controls...just midi...the teensy midi input is untested, but since it is simply sending midi over USB, it shouldn't have a problem.  You will have to dig around the original repository to get the docs etc...if they are missing I can add them here.
 
@@ -24,13 +24,14 @@ For each Midi channel you need the following CCs (I am only using 1 midi channel
   CC 5 = record (this is how you command the software to do an audio capture off your selected input device)\
 
 
-The Dr Mix video shows the 2 wave version, I only wanted the 1 wave version. (note the instructions below on changing that)  I am running my display at 1024x768, so this program runs at fullscreen.  More pixels seems to add more load, but you can try running at 1920x1080 on your display and in the program.
+The Dr Mix video shows the 2 wave version, I only wanted the 1 wave version. (note the instructions below on changing that)  I am running my display at 1024x768, so this program runs at fullscreen.  More pixels seems to add more load, but you can try running at 1920x1080 on your display and in the program. (note: I have tested this a little bit, seems to work fine without much load change on the system)
 
 You don't have to use the Starlett...I had one, so I used it.  For my 2 channel input, if using single wave setup, then channel one is the input, if a dual wave setup then channel 2 goes to wave 2.  (can you imagine the drama, when the original fix put the single wave input as channel 2 and I am trying to figure out why no recorded audio...?)
 
 IF you have a single channel input, it should go to both waves in a dual wave setup.
 
----
+## Installation
+
 Instructions from Cursor AI follows.  BTW modern python almost forces you to use a Virtual Environment (venv) so I followed that convention.  (for the record, I did not install this way (my fork did not yet exist)..so can't tell you if all the instructions will work in your case)
 
 Install it from your fork, on the python-port branch. On the Pi, replace /home/pi if your home directory is different. 
@@ -45,9 +46,11 @@ python3 -m venv --system-site-packages .venv
 source .venv/bin/activate
 python3 -m pip install sounddevice python-rtmidi
 python3 -m opencollidoscope --list-audio
-python3 -m opencollidoscope --output usb 1024 768
+python3 -m opencollidoscope 1024 768
 ```
 --system-site-packages uses the Raspberry Pi OS builds of pygame and numpy. Set NUM_WAVES in opencollidoscope/config.py before you start: 1 uses the first input only, 2 sends input 1 to wave 1 and input 2 to wave 2. Leave the desktop volume output on HDMI so the Scarlett stays with this program.
+
+## Desktop Icon
 
 To put an icon on the desktop, save this as /home/pi/Desktop/opencollidoscope.desktop:
 
@@ -56,7 +59,7 @@ To put an icon on the desktop, save this as /home/pi/Desktop/opencollidoscope.de
 Type=Application
 Name=OpenCollidoscope
 Comment=Granular sampler
-Exec=/home/pi/opencollidoscope/python/.venv/bin/python -m opencollidoscope --output usb 1024 768
+Exec=/home/pi/opencollidoscope/python/.venv/bin/python -m opencollidoscope 1024 768
 Path=/home/pi/opencollidoscope/python
 Terminal=false
 Categories=AudioVideo;Audio;
@@ -67,10 +70,30 @@ chmod +x /home/pi/Desktop/opencollidoscope.desktop
 ```
 If the desktop asks you to trust the launcher, confirm that. Copying the same file to /home/pi/.local/share/applications/ also puts it in the application menu.
 
+---
 
+## Audio config (optional)
+
+An issue I had was I wanted to use the Scarett for my input and output, but I was using a combo keyboard/mouse/screen (like a laptop without computer guts) connected to the Pi.  Rasbian assumed that was the mic input I wanted...and HDMI output. I saw this in the Collidoscope debug screen (F1).  It showed an additional USB audio device (for example KTMicro KT USB Audio). The program records from that device unless the input and output are pinned.
+
+These commands only need to be run once to set the output you want. List the devices, then save the ones you want. Use a unique part of the name from the list. `usb` matches every USB audio device once more than one is plugged in.
+
+```bash
+cd /home/pi/opencollidoscope/python
+source .venv/bin/activate
+python3 -m opencollidoscope --list-audio
+python3 -m opencollidoscope --input [device you want] --output [device you want] --save-audio
+```
+
+`--save-audio` writes `~/.config/opencollidoscope/audio.conf`. Later launches, including the desktop icon, use that file, so `--output usb` is no longer needed on the command or in the desktop file. `--input` or `--output` on the command line still overrides the file for that one run. Press `F1` to see which devices are open and whether each one came from `command`, `config`, or `auto`.
+
+In my case the command was python3 -m opencollidoscope --input Scarett --output Scarett --save-audio
+
+Again if you use the F1 debug screen, you will see what audio devices the software is using.
 
 
 ----------------------
+## Optional Modification
 
 PS, the way the original Collidoscope plays is the keyboard changes the rate AND pitch...
 
@@ -134,16 +157,3 @@ self.voices[i].note_on(1.0)
 ```
 
 ------------------------
-
-## Audio config
-
-A combo keyboard or screen can expose its own microphone (for example KTMicro KT USB Audio). The program records from that device unless the input and output are pinned. List the devices, then save the ones you want. Use a unique part of the name from the list. `usb` matches every USB audio device once more than one is plugged in.
-
-```bash
-cd /home/pi/opencollidoscope/python
-source .venv/bin/activate
-python3 -m opencollidoscope --list-audio
-python3 -m opencollidoscope --input Scarlett --output Scarlett --save-audio
-```
-
-`--save-audio` writes `~/.config/opencollidoscope/audio.conf`. Later launches, including the desktop icon, use that file, so `--output usb` is no longer needed on the command or in the desktop file. `--input` or `--output` on the command line still overrides the file for that one run. Press `F1` to see which devices are open and whether each one came from `command`, `config`, or `auto`.
